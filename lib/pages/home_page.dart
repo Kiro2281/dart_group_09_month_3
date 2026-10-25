@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 
 import 'add_page.dart';
+import '../models/todo.dart';
+import 'settings_page.dart';
+import 'todo_details_page.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -10,7 +13,13 @@ class HomePage extends StatefulWidget {
 }
 
 class _HomePageState extends State<HomePage> {
-  final List<String> _tasks = [];
+  final List<Todo> _tasks = [];
+
+  void _openSettingsPage() {
+    Navigator.of(context).push<void>(
+      MaterialPageRoute<void>(builder: (context) => const SettingsPage()),
+    );
+  }
 
   void _openAddPage() async {
     final task = await Navigator.of(context).push<String>(
@@ -20,20 +29,33 @@ class _HomePageState extends State<HomePage> {
     if (!mounted || task == null) return;
 
     setState(() {
-      _tasks.insert(0, task);
+      _tasks.insert(0, Todo(title: task));
     });
+  }
+
+  void _openDetailsPage(Todo todo) {
+    Navigator.of(context).push<void>(
+      MaterialPageRoute<void>(
+        builder: (context) => TodoDetailsPage(todo: todo),
+      ),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
-    final colors = Theme.of(context).colorScheme;
-
     return Scaffold(
       appBar: AppBar(
         title: const Text(
           'Мои задачи',
           style: TextStyle(fontWeight: FontWeight.w700),
         ),
+        actions: [
+          IconButton(
+            onPressed: _openSettingsPage,
+            tooltip: 'Настройки',
+            icon: const Icon(Icons.settings_outlined),
+          ),
+        ],
       ),
       body: SafeArea(
         child: Padding(
@@ -62,8 +84,11 @@ class _HomePageState extends State<HomePage> {
                         itemCount: _tasks.length,
                         separatorBuilder: (context, index) =>
                             const SizedBox(height: 12),
-                        itemBuilder: (context, index) =>
-                            _TaskCard(task: _tasks[index], number: index + 1),
+                        itemBuilder: (context, index) => _TaskCard(
+                          todo: _tasks[index],
+                          number: index + 1,
+                          onTap: () => _openDetailsPage(_tasks[index]),
+                        ),
                       ),
               ),
             ],
@@ -144,10 +169,15 @@ class _EmptyTasksState extends StatelessWidget {
 }
 
 class _TaskCard extends StatelessWidget {
-  const _TaskCard({required this.task, required this.number});
+  const _TaskCard({
+    required this.todo,
+    required this.number,
+    required this.onTap,
+  });
 
-  final String task;
+  final Todo todo;
   final int number;
+  final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
@@ -155,41 +185,42 @@ class _TaskCard extends StatelessWidget {
 
     return Card(
       margin: EdgeInsets.zero,
-      color: Colors.white,
+      color: colors.surface,
       elevation: 0,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(18),
-        side: const BorderSide(color: Color(0xFFEAEAF1)),
+        side: BorderSide(color: colors.outlineVariant),
       ),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 18),
-        child: Row(
-          children: [
-            Container(
-              width: 38,
-              height: 38,
-              alignment: Alignment.center,
-              decoration: BoxDecoration(
-                color: colors.primaryContainer,
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Text(
-                '$number',
-                style: TextStyle(
-                  color: colors.primary,
-                  fontWeight: FontWeight.w700,
-                ),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(18),
+        child: ListTile(
+          contentPadding: const EdgeInsets.symmetric(
+            horizontal: 16,
+            vertical: 8,
+          ),
+          leading: Container(
+            width: 38,
+            height: 38,
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              color: colors.primaryContainer,
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Text(
+              '$number',
+              style: TextStyle(
+                color: colors.primary,
+                fontWeight: FontWeight.w700,
               ),
             ),
-            const SizedBox(width: 14),
-            Expanded(
-              child: Text(
-                task,
-                style: Theme.of(context).textTheme.bodyLarge
-                    ?.copyWith(fontWeight: FontWeight.w500),
-              ),
-            ),
-          ],
+          ),
+          title: Text(
+            todo.title,
+            style: Theme.of(context).textTheme.bodyLarge
+                ?.copyWith(fontWeight: FontWeight.w500),
+          ),
+          trailing: const Icon(Icons.chevron_right),
         ),
       ),
     );
