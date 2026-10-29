@@ -3,15 +3,25 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 
 import 'cubit/settings_cubit.dart';
 import 'pages/home_page.dart';
+import 'pages/onboarding_page.dart';
+import 'services/onboarding_preferences.dart';
 
-void main() {
+Future<void> main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  final isOnboardingViewed = await OnboardingPreferences.isViewed();
+
   runApp(
-    BlocProvider(create: (context) => SettingsCubit(), child: const TodoApp()),
+    BlocProvider(
+      create: (context) => SettingsCubit(),
+      child: MyApp(isOnboardingViewed: isOnboardingViewed),
+    ),
   );
 }
 
-class TodoApp extends StatelessWidget {
-  const TodoApp({super.key});
+class MyApp extends StatelessWidget {
+  const MyApp({required this.isOnboardingViewed, super.key});
+
+  final bool isOnboardingViewed;
 
   @override
   Widget build(BuildContext context) {
@@ -24,7 +34,7 @@ class TodoApp extends StatelessWidget {
         theme: _buildTheme(seedColor, Brightness.light),
         darkTheme: _buildTheme(seedColor, Brightness.dark),
         themeMode: isDarkTheme ? ThemeMode.dark : ThemeMode.light,
-        home: const HomePage(),
+        home: isOnboardingViewed ? const HomePage() : const OnboardingPage(),
       ),
     );
   }
