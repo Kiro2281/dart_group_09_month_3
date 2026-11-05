@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
+import 'Utilis/app_SnackBar.dart';
 import 'cubit/settings_cubit.dart';
 import 'pages/home_page.dart';
 import 'pages/onboarding_page.dart';
@@ -29,6 +30,7 @@ class MyApp extends StatelessWidget {
 
     return BlocBuilder<SettingsCubit, bool>(
       builder: (context, isDarkTheme) => MaterialApp(
+        scaffoldMessengerKey: scaffoldMessengerKey,
         title: 'Мои задачи',
         debugShowCheckedModeBanner: false,
         theme: _buildTheme(seedColor, Brightness.light),

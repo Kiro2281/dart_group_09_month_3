@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 
 import 'add_page.dart';
+import '../cubit/todo_details_cubit.dart';
 import '../models/todo.dart';
+import '../services/todo_repository.dart';
 import 'settings_page.dart';
 import 'todo_details_page.dart';
 
@@ -13,7 +16,38 @@ class HomePage extends StatefulWidget {
 }
 
 class _HomePageState extends State<HomePage> {
-  final List<Todo> _tasks = [];
+  final TodoRepository _todoRepository = TodoRepository();
+  List<Todo> _tasks = [];
+  bool _isLoading = true;
+  String? _loadError;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadTodos();
+  }
+
+  Future<void> _loadTodos() async {
+    setState(() {
+      _isLoading = true;
+      _loadError = null;
+    });
+
+    try {
+      final todos = await _todoRepository.getTodos();
+      if (!mounted) return;
+      setState(() {
+        _tasks = todos;
+        _isLoading = false;
+      });
+    } catch (error) {
+      if (!mounted) return;
+      setState(() {
+        _loadError = error.toString();
+        _isLoading = false;
+      });
+    }
+  }
 
   void _openSettingsPage() {
     Navigator.of(context).push<void>(
@@ -21,24 +55,34 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
-  void _openAddPage() async {
+  Future<void> _openAddPage() async {
     final task = await Navigator.of(context).push<String>(
       MaterialPageRoute<String>(builder: (context) => const AddPage()),
     );
 
     if (!mounted || task == null) return;
 
-    setState(() {
-      _tasks.insert(0, Todo(title: task));
-    });
+    try {
+      await _todoRepository.addTodo(task);
+      await _loadTodos();
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Не удалось добавить задачу: $error')),
+      );
+    }
   }
 
-  void _openDetailsPage(Todo todo) {
-    Navigator.of(context).push<void>(
-      MaterialPageRoute<void>(
-        builder: (context) => TodoDetailsPage(todo: todo),
+  Future<void> _openDetailsPage(Todo todo) async {
+    final changed = await Navigator.of(context).push<bool>(
+      MaterialPageRoute<bool>(
+        builder: (context) => BlocProvider(
+          create: (context) => TodoDetailsCubit(_todoRepository, todo),
+          child: TodoDetailsPage(todo: todo),
+        ),
       ),
     );
+    if (changed == true && mounted) await _loadTodos();
   }
 
   @override
@@ -77,7 +121,23 @@ class _HomePageState extends State<HomePage> {
               ),
               const SizedBox(height: 24),
               Expanded(
-                child: _tasks.isEmpty
+                child: _isLoading
+                    ? const Center(child: CircularProgressIndicator())
+                    : _loadError != null
+                    ? Center(
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text('Не удалось загрузить задачи: $_loadError'),
+                            const SizedBox(height: 12),
+                            OutlinedButton(
+                              onPressed: _loadTodos,
+                              child: const Text('Повторить'),
+                            ),
+                          ],
+                        ),
+                      )
+                    : _tasks.isEmpty
                     ? _EmptyTasksState(onAddTask: _openAddPage)
                     : ListView.separated(
                         padding: const EdgeInsets.only(bottom: 16),

@@ -1,6 +1,5 @@
-import 'dart:async';
-
 import 'package:flutter/material.dart';
+import 'package:flutter_application_10/Utilis/app_SnackBar.dart';
 
 class AddPage extends StatefulWidget {
   const AddPage({super.key});
@@ -10,25 +9,13 @@ class AddPage extends StatefulWidget {
 }
 
 class _AddPageState extends State<AddPage> {
-  final TextEditingController _textEditingController =
-      TextEditingController();
-  late final Timer _timer;
-
-  @override
-  void initState() {
-    super.initState();
-    _timer = Timer.periodic(const Duration(seconds: 1), (_) {
-      final date = DateTime.now();
-      debugPrint('${date.minute} : ${date.second}');
-    });
-  }
+  final TextEditingController _textEditingController = TextEditingController();
+  bool _isSaving = false;
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Новая задача'),
-      ),
+      appBar: AppBar(title: const Text('Новая задача')),
       body: Center(
         child: Padding(
           padding: const EdgeInsets.all(20),
@@ -37,8 +24,6 @@ class _AddPageState extends State<AddPage> {
             children: [
               TextField(
                 controller: _textEditingController,
-                textCapitalization: TextCapitalization.sentences,
-                textInputAction: TextInputAction.done,
                 decoration: const InputDecoration(
                   border: OutlineInputBorder(),
                   labelText: 'Введите название задачи',
@@ -47,7 +32,7 @@ class _AddPageState extends State<AddPage> {
               ),
               const SizedBox(height: 12),
               TextButton(
-                onPressed: _onSaveTap,
+                onPressed: _isSaving ? null : _onSaveTap,
                 child: const Text('Сохранить'),
               ),
             ],
@@ -57,17 +42,65 @@ class _AddPageState extends State<AddPage> {
     );
   }
 
-  void _onSaveTap() {
-    final task = _textEditingController.text.trim();
-    if (task.isEmpty) return;
+  void _onSaveTap() async {
+    if (_isSaving) return;
 
-    Navigator.of(context).pop(task);
+    setState(() {
+      _isSaving = true;
+    });
+
+    try {
+      final title = saveTask();
+      await showAppSnackBar(
+        text: "Задача сохранена",
+        backgroundColor: Colors.green,
+        icon: Icons.check_box,
+      );
+      await Future.delayed(const Duration(seconds: 2));
+      if (!mounted) return;
+      Navigator.of(context).pop(title);
+    } catch (error) {
+      await showAppSnackBar(
+        text: error.toString(),
+        backgroundColor: Colors.red,
+        icon: Icons.close_rounded,
+      );
+      if (mounted) {
+        setState(() {
+          _isSaving = false;
+        });
+      }
+    }
+  }
+
+  String saveTask() {
+    final title = _textEditingController.text.trim();
+
+    if (title.isEmpty) {
+      throw TaskTextException(message: "Текст не может быть пустым");
+    } else if (title.length < 3) {
+      throw TaskTextException(
+        message: "Текст должен содержать хотя бы 3 символа",
+      );
+    }
+
+    return title;
   }
 
   @override
   void dispose() {
-    _timer.cancel();
     _textEditingController.dispose();
     super.dispose();
+  }
+}
+
+class TaskTextException implements Exception {
+  String message;
+
+  TaskTextException({required this.message});
+
+  @override
+  String toString() {
+    return message;
   }
 }
