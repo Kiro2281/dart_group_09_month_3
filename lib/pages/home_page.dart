@@ -56,14 +56,19 @@ class _HomePageState extends State<HomePage> {
   }
 
   Future<void> _openAddPage() async {
-    final task = await Navigator.of(context).push<String>(
-      MaterialPageRoute<String>(builder: (context) => const AddPage()),
+    final task = await Navigator.of(context).push<AddTaskResult>(
+      MaterialPageRoute<AddTaskResult>(
+        builder: (context) => const AddPage(),
+      ),
     );
 
     if (!mounted || task == null) return;
 
     try {
-      await _todoRepository.addTodo(task);
+      await _todoRepository.addTodo(
+        task.title,
+        reminderAt: task.reminderAt,
+      );
       await _loadTodos();
     } catch (error) {
       if (!mounted) return;
@@ -83,6 +88,18 @@ class _HomePageState extends State<HomePage> {
       ),
     );
     if (changed == true && mounted) await _loadTodos();
+  }
+
+  Future<void> _setTaskCompleted(Todo todo, bool isCompleted) async {
+    try {
+      await _todoRepository.updateTodo(todo.copyWith(isCompleted: isCompleted));
+      if (mounted) await _loadTodos();
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Не удалось обновить задачу: $error')),
+      );
+    }
   }
 
   @override
@@ -107,19 +124,43 @@ class _HomePageState extends State<HomePage> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(
-                'План на сегодня',
-                style: Theme.of(context).textTheme.headlineSmall
-                    ?.copyWith(fontWeight: FontWeight.w700),
+              Row(
+                children: [
+                  Icon(
+                    Icons.today_outlined,
+                    size: 20,
+                    color: Theme.of(context).colorScheme.primary,
+                  ),
+                  const SizedBox(width: 8),
+                  Text(
+                    'Сегодня',
+                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  const Spacer(),
+                  if (_tasks.isNotEmpty)
+                    Text(
+                      '${_tasks.where((task) => task.isCompleted).length}/${_tasks.length}',
+                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                        color: Theme.of(context).colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                ],
               ),
-              const SizedBox(height: 8),
+              const SizedBox(height: 12),
+              Divider(color: Theme.of(context).colorScheme.outlineVariant),
+              const SizedBox(height: 12),
               Text(
                 _tasks.isEmpty
-                    ? 'Добавьте первую задачу и начните свой план.'
-                    : 'У вас ${_tasks.length} ${_taskCountLabel(_tasks.length)}',
-                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                    ? 'Список задач'
+                    : '${_tasks.length} ${_taskCountLabel(_tasks.length)}',
+                style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  fontWeight: FontWeight.w600,
+                ),
               ),
-              const SizedBox(height: 24),
+              const SizedBox(height: 12),
               Expanded(
                 child: _isLoading
                     ? const Center(child: CircularProgressIndicator())
@@ -146,8 +187,9 @@ class _HomePageState extends State<HomePage> {
                             const SizedBox(height: 12),
                         itemBuilder: (context, index) => _TaskCard(
                           todo: _tasks[index],
-                          number: index + 1,
                           onTap: () => _openDetailsPage(_tasks[index]),
+                          onChanged: (value) =>
+                              _setTaskCompleted(_tasks[index], value),
                         ),
                       ),
               ),
@@ -231,13 +273,13 @@ class _EmptyTasksState extends StatelessWidget {
 class _TaskCard extends StatelessWidget {
   const _TaskCard({
     required this.todo,
-    required this.number,
     required this.onTap,
+    required this.onChanged,
   });
 
   final Todo todo;
-  final int number;
   final VoidCallback onTap;
+  final ValueChanged<bool> onChanged;
 
   @override
   Widget build(BuildContext context) {
@@ -259,26 +301,25 @@ class _TaskCard extends StatelessWidget {
             horizontal: 16,
             vertical: 8,
           ),
-          leading: Container(
-            width: 38,
-            height: 38,
-            alignment: Alignment.center,
-            decoration: BoxDecoration(
-              color: colors.primaryContainer,
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Text(
-              '$number',
-              style: TextStyle(
-                color: colors.primary,
-                fontWeight: FontWeight.w700,
-              ),
+          leading: Checkbox(
+            value: todo.isCompleted,
+            onChanged: (value) {
+              if (value != null) onChanged(value);
+            },
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(4),
             ),
           ),
           title: Text(
             todo.title,
             style: Theme.of(context).textTheme.bodyLarge
-                ?.copyWith(fontWeight: FontWeight.w500),
+                ?.copyWith(
+                  fontWeight: FontWeight.w500,
+                  decoration: todo.isCompleted
+                      ? TextDecoration.lineThrough
+                      : null,
+                  color: todo.isCompleted ? colors.onSurfaceVariant : null,
+                ),
           ),
           trailing: const Icon(Icons.chevron_right),
         ),

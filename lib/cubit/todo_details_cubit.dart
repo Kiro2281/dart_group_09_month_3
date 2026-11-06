@@ -22,7 +22,7 @@ class TodoDetailsCubit extends Cubit<TodoDetailsState> {
   final TodoRepository _repository;
   final Todo _todo;
 
-  Future<void> updateTodo(String title) async {
+  Future<void> updateTodo(String title, {DateTime? reminderAt}) async {
     final updatedTitle = title.trim();
     if (updatedTitle.isEmpty) {
       emit(
@@ -36,7 +36,14 @@ class TodoDetailsCubit extends Cubit<TodoDetailsState> {
 
     emit(const TodoDetailsState(status: TodoDetailsStatus.saving));
     try {
-      await _repository.updateTodo(Todo(id: _todo.id, title: updatedTitle));
+      await _repository.updateTodo(
+        Todo(
+          id: _todo.id,
+          title: updatedTitle,
+          reminderAt: reminderAt,
+          isCompleted: _todo.isCompleted,
+        ),
+      );
       emit(const TodoDetailsState(status: TodoDetailsStatus.saved));
     } catch (error) {
       emit(

@@ -17,13 +17,20 @@ class TodoRepository {
     for (final item in decodedTodos) {
       final todoData = Map<String, dynamic>.from(item as Map);
       todos.add(
-        Todo(id: todoData['id'] as int, title: todoData['title'] as String),
+        Todo(
+          id: todoData['id'] as int,
+          title: todoData['title'] as String,
+          reminderAt: todoData['reminderAt'] == null
+              ? null
+              : DateTime.parse(todoData['reminderAt'] as String),
+          isCompleted: todoData['isCompleted'] as bool? ?? false,
+        ),
       );
     }
     return todos;
   }
 
-  Future<void> addTodo(String title) async {
+  Future<void> addTodo(String title, {DateTime? reminderAt}) async {
     final todos = await getTodos();
     var largestId = 0;
     for (final todo in todos) {
@@ -33,7 +40,7 @@ class TodoRepository {
     }
     final nextId = largestId + 1;
 
-    todos.insert(0, Todo(id: nextId, title: title));
+    todos.insert(0, Todo(id: nextId, title: title, reminderAt: reminderAt));
     await _saveTodos(todos);
   }
 
@@ -64,7 +71,16 @@ class TodoRepository {
     final saved = await preferences.setString(
       _storageKey,
       jsonEncode(
-        todos.map((todo) => {'id': todo.id, 'title': todo.title}).toList(),
+        todos
+            .map(
+              (todo) => {
+                'id': todo.id,
+                'title': todo.title,
+                'reminderAt': todo.reminderAt?.toIso8601String(),
+                'isCompleted': todo.isCompleted,
+              },
+            )
+            .toList(),
       ),
     );
     if (!saved) {

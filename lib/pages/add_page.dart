@@ -8,41 +8,117 @@ class AddPage extends StatefulWidget {
   State<AddPage> createState() => _AddPageState();
 }
 
+class AddTaskResult {
+  const AddTaskResult({required this.title, this.reminderAt});
+
+  final String title;
+  final DateTime? reminderAt;
+}
+
 class _AddPageState extends State<AddPage> {
   final TextEditingController _textEditingController = TextEditingController();
   bool _isSaving = false;
+  DateTime? _reminderAt;
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Новая задача')),
-      body: Center(
+      appBar: AppBar(title: const Text('Новая задача'), centerTitle: true),
+      body: SafeArea(
         child: Padding(
-          padding: const EdgeInsets.all(20),
+          padding: const EdgeInsets.fromLTRB(20, 20, 20, 16),
           child: Column(
-            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
+              Text(
+                'Название задачи',
+                style: Theme.of(context).textTheme.titleSmall,
+              ),
+              const SizedBox(height: 8),
               TextField(
                 controller: _textEditingController,
-                decoration: const InputDecoration(
-                  border: OutlineInputBorder(),
-                  labelText: 'Введите название задачи',
+                textCapitalization: TextCapitalization.sentences,
+                textInputAction: TextInputAction.done,
+                decoration: InputDecoration(
+                  hintText: 'Введите название задачи',
+                  filled: true,
+                  fillColor: Theme.of(context)
+                      .colorScheme
+                      .surfaceContainerHighest
+                      .withValues(alpha: 0.45),
+                  border: InputBorder.none,
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(14),
+                    borderSide: BorderSide.none,
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(14),
+                    borderSide: BorderSide(
+                      color: Theme.of(context).colorScheme.primary,
+                    ),
+                  ),
+                  contentPadding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 16,
+                  ),
                 ),
                 onSubmitted: (_) => _onSaveTap(),
               ),
-              const SizedBox(height: 12),
-              TextButton(
-                onPressed: _isSaving ? null : _onSaveTap,
-                child: const Text('Сохранить'),
+              const SizedBox(height: 20),
+              Text(
+                'Напоминание',
+                style: Theme.of(context).textTheme.titleSmall,
+              ),
+              const SizedBox(height: 8),
+              _ReminderTile(
+                reminderAt: _reminderAt,
+                onTap: _isSaving ? null : _selectReminder,
+                onClear: _isSaving || _reminderAt == null
+                    ? null
+                    : () => setState(() => _reminderAt = null),
               ),
             ],
           ),
         ),
       ),
+      bottomNavigationBar: SafeArea(
+        minimum: const EdgeInsets.fromLTRB(20, 8, 20, 16),
+        child: FilledButton(
+          onPressed: _isSaving ? null : _onSaveTap,
+          style: FilledButton.styleFrom(
+            minimumSize: const Size.fromHeight(52),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
+          ),
+          child: const Text('Сохранить задачу'),
+        ),
+      ),
     );
   }
 
-  void _onSaveTap() async {
+  Future<void> _selectReminder() async {
+    final today = DateUtils.dateOnly(DateTime.now());
+    final pickedDate = await showDatePicker(
+      context: context,
+      initialDate: _reminderAt ?? today,
+      firstDate: today,
+      lastDate: DateTime(today.year + 10),
+    );
+    if (pickedDate != null && mounted) {
+      setState(() {
+        _reminderAt = DateTime(
+          pickedDate.year,
+          pickedDate.month,
+          pickedDate.day,
+          _reminderAt?.hour ?? 9,
+          _reminderAt?.minute ?? 0,
+        );
+      });
+    }
+  }
+
+  Future<void> _onSaveTap() async {
     if (_isSaving) return;
 
     setState(() {
@@ -56,9 +132,9 @@ class _AddPageState extends State<AddPage> {
         backgroundColor: Colors.green,
         icon: Icons.check_box,
       );
-      await Future.delayed(const Duration(seconds: 2));
       if (!mounted) return;
-      Navigator.of(context).pop(title);
+      Navigator.of(context)
+          .pop(AddTaskResult(title: title, reminderAt: _reminderAt));
     } catch (error) {
       await showAppSnackBar(
         text: error.toString(),
@@ -91,6 +167,62 @@ class _AddPageState extends State<AddPage> {
   void dispose() {
     _textEditingController.dispose();
     super.dispose();
+  }
+}
+
+class _ReminderTile extends StatelessWidget {
+  const _ReminderTile({
+    required this.reminderAt,
+    required this.onTap,
+    required this.onClear,
+  });
+
+  final DateTime? reminderAt;
+  final VoidCallback? onTap;
+  final VoidCallback? onClear;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final reminder = reminderAt;
+    final dateText = reminder == null
+        ? 'Выберите дату'
+        : '${reminder.day.toString().padLeft(2, '0')}.'
+              '${reminder.month.toString().padLeft(2, '0')}.'
+              '${reminder.year}';
+
+    return Material(
+      color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.45),
+      borderRadius: BorderRadius.circular(14),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(14),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+          child: Row(
+            children: [
+              Icon(
+                Icons.calendar_month_outlined,
+                color: theme.colorScheme.primary,
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(dateText, style: theme.textTheme.bodyMedium),
+              ),
+              if (onClear != null)
+                IconButton(
+                  onPressed: onClear,
+                  tooltip: 'Убрать напоминание',
+                  icon: const Icon(Icons.close, size: 18),
+                  visualDensity: VisualDensity.compact,
+                )
+              else
+                const Icon(Icons.chevron_right),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 }
 

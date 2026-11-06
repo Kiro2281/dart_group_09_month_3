@@ -10,7 +10,6 @@ import 'services/onboarding_preferences.dart';
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   final isOnboardingViewed = await OnboardingPreferences.isViewed();
-
   runApp(
     BlocProvider(
       create: (context) => SettingsCubit(),
@@ -26,7 +25,7 @@ class MyApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const seedColor = Color(0xFF5B5FEF);
+    const seedColor = Color(0xFF078CFF);
 
     return BlocBuilder<SettingsCubit, bool>(
       builder: (context, isDarkTheme) => MaterialApp(
@@ -50,14 +49,19 @@ class MyApp extends StatelessWidget {
       colorScheme: ColorScheme.fromSeed(
         seedColor: seedColor,
         brightness: brightness,
+      ).copyWith(
+        primary: seedColor,
+        primaryContainer: isDark
+            ? const Color(0xFF16314A)
+            : const Color(0xFFDCEEFF),
       ),
       scaffoldBackgroundColor: isDark
           ? const Color(0xFF121212)
-          : const Color(0xFFF7F7FB),
+          : Colors.white,
       appBarTheme: AppBarTheme(
         backgroundColor: isDark
             ? const Color(0xFF121212)
-            : const Color(0xFFF7F7FB),
+            : Colors.white,
       ),
       inputDecorationTheme: InputDecorationTheme(
         filled: false,

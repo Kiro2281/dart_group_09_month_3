@@ -15,11 +15,13 @@ class TodoDetailsPage extends StatefulWidget {
 
 class _TodoDetailsPageState extends State<TodoDetailsPage> {
   late final TextEditingController _titleController;
+  DateTime? _reminderAt;
 
   @override
   void initState() {
     super.initState();
     _titleController = TextEditingController(text: widget.todo.title);
+    _reminderAt = widget.todo.reminderAt;
   }
 
   @override
@@ -65,6 +67,17 @@ class _TodoDetailsPageState extends State<TodoDetailsPage> {
                   onFieldSubmitted: (_) => _save(context),
                 ),
                 const SizedBox(height: 20),
+                Text(
+                  'Напоминание',
+                  style: Theme.of(context).textTheme.titleSmall,
+                ),
+                const SizedBox(height: 8),
+                _ReminderEditor(
+                  reminderAt: _reminderAt,
+                  enabled: !isBusy,
+                  onChanged: (value) => setState(() => _reminderAt = value),
+                ),
+                const SizedBox(height: 20),
                 SizedBox(
                   width: double.infinity,
                   child: FilledButton(
@@ -91,12 +104,93 @@ class _TodoDetailsPageState extends State<TodoDetailsPage> {
   }
 
   void _save(BuildContext context) {
-    context.read<TodoDetailsCubit>().updateTodo(_titleController.text);
+    context.read<TodoDetailsCubit>().updateTodo(
+      _titleController.text,
+      reminderAt: _reminderAt,
+    );
   }
 
   @override
   void dispose() {
     _titleController.dispose();
     super.dispose();
+  }
+}
+
+class _ReminderEditor extends StatelessWidget {
+  const _ReminderEditor({
+    required this.reminderAt,
+    required this.enabled,
+    required this.onChanged,
+  });
+
+  final DateTime? reminderAt;
+  final bool enabled;
+  final ValueChanged<DateTime?> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final reminder = reminderAt;
+    final dateText = reminder == null
+        ? 'Выберите дату'
+        : '${reminder.day.toString().padLeft(2, '0')}.'
+              '${reminder.month.toString().padLeft(2, '0')}.'
+              '${reminder.year}';
+
+    return Material(
+      color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.45),
+      borderRadius: BorderRadius.circular(14),
+      child: InkWell(
+        onTap: enabled ? () => _selectDate(context) : null,
+        borderRadius: BorderRadius.circular(14),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+          child: Row(
+            children: [
+              Icon(
+                Icons.calendar_month_outlined,
+                color: theme.colorScheme.primary,
+              ),
+              const SizedBox(width: 12),
+              Expanded(child: Text(dateText)),
+              if (reminder != null)
+                IconButton(
+                  onPressed: enabled ? () => onChanged(null) : null,
+                  tooltip: 'Убрать напоминание',
+                  icon: const Icon(Icons.close, size: 18),
+                  visualDensity: VisualDensity.compact,
+                )
+              else
+                const Icon(Icons.chevron_right),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _selectDate(BuildContext context) async {
+    final today = DateUtils.dateOnly(DateTime.now());
+    final initialDate = reminderAt?.isBefore(today) == true
+        ? today
+        : reminderAt ?? today;
+    final pickedDate = await showDatePicker(
+      context: context,
+      initialDate: initialDate,
+      firstDate: today,
+      lastDate: DateTime(today.year + 10),
+    );
+    if (pickedDate != null) {
+      onChanged(
+        DateTime(
+          pickedDate.year,
+          pickedDate.month,
+          pickedDate.day,
+          reminderAt?.hour ?? 9,
+          reminderAt?.minute ?? 0,
+        ),
+      );
+    }
   }
 }
